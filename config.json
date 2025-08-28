@@ -1,0 +1,11 @@
+{
+    "watchFolder": "C:/Users/Admin/Downloads/",
+    "fileTypes": {
+        "Document": [".txt", ".pdf", ".doc", ".docx", ".ppt", ".pptx"],
+        "Music": [".mp3"],
+        "Audio": [".ogg", ".wav"],
+        "Application": [".exe"],
+        "Video": [".mp4"],
+        "Image": [".png", ".jpg"]
+    }
+}
