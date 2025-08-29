@@ -5,7 +5,7 @@ import json
 import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
-with open('config.json', 'r') as f:
+with open('D:/CV/Sorter/config.json', 'r') as f:
     config=json.load(f)
 cwd=config['watchFolder']
 os.chdir(cwd)
@@ -33,53 +33,39 @@ class OnMyWatch:
         self.observer.join()
 
 class Handler(FileSystemEventHandler):
+    def processFile(self, filePath):
+        x=os.path.basename(filePath)
+        if (x==os.path.basename(__file__)):
+            logger.info("Skipping the file itself...")
+            return
+        if x.startswith('~') or x.endswith('.tmp') or x.endswith('.crdownload') or x.endswith('.part'):
+            logger.info(f"Ignoring temporary file: {x}")
+            return
+        for folders in fileTypes:
+            for fileExtension in fileTypes[folders]:
+                if (x.endswith(fileExtension)):
+                    num=0
+                    currentFile=x
+                    while (os.path.exists(folders+'/'+currentFile)):
+                        newFile='('+str(num)+') '+x
+                        currentFile=newFile
+                        num+=1
+                    shutil.move(x, folders+'/'+currentFile)
+                    logger.info('Moved '+x+' to '+folders)
+                    break
+    def on_moved(self, event):
+        destDir = os.path.dirname(event.dest_path)+'/'
+        if (destDir.startswith(cwd)):
+            relativePath=os.path.relpath(destDir, cwd)
+            if (relativePath in fileTypes.keys()):
+                logger.info("Ignoring internal move to category folder...")
+                return
+        if not event.is_directory:
+            self.processFile(event.dest_path)
+        return super().on_moved(event)
     def on_created(self, event):
         if not event.is_directory:
-            x=os.path.basename(event.src_path)
-            if (x==os.path.basename(__file__)):
-                logger.info("Skipping the file itself...")
-                return
-            for folders in fileTypes:
-                for fileExtension in fileTypes[folders]:
-                    if (x.endswith(fileExtension)):
-                        num=0
-                        currentFile=x
-                        while (os.path.exists(folders+'/'+currentFile)):
-                            newFile='('+str(num)+') '+x
-                            renameSuccessful=False
-                            retries=5
-                            waitTime=1
-
-                            while (not renameSuccessful and retries>0):
-                                try:
-                                    os.rename(currentFile, newFile)
-                                    renameSuccessful=True
-                                except PermissionError:
-                                    logger.warning(currentFile+' is locked, retrying in '+str(waitTime)+'s...')
-                                    retries-=1
-                                    time.sleep(waitTime)
-                            if (not renameSuccessful):
-                                logger.error('Failed to rename '+currentFile+' after multiple attempts, skipping file...')
-                                break
-                            logger.info('Found a duplicate in the '+folders+', renaming '+currentFile+' to '+newFile+'...')
-                            currentFile=newFile
-                            num+=1
-                        moveSuccessful=False
-                        retries=5
-                        waitTime=1
-                        while (not moveSuccessful and retries>0):
-                            try:
-                                shutil.move(currentFile, folders)
-                                moveSuccessful=True
-                            except PermissionError:
-                                logger.warning(currentFile+' is locked for moving, retrying in '+str(waitTime)+'s...')
-                                retries-=1
-                                time.sleep(waitTime)
-                        if (not moveSuccessful):
-                            logger.error('Failed to move '+currentFile+' after multiple attempts, skipping file...')
-                            break
-                        logger.info('Moved '+currentFile+' to '+folders)
-                        break
+            self.processFile(event.dest_path)
         return super().on_created(event)
 
 if __name__ == '__main__':
